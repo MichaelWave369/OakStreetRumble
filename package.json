@@ -1,6 +1,6 @@
 {
   "name": "oak-street-rumble",
-  "version": "0.2.0-contracts",
+  "version": "0.3.0-kernel",
   "private": true,
   "type": "module",
   "engines": {
