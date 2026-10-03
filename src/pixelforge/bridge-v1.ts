@@ -72,7 +72,7 @@ export function createOakPixelForgeBridge(
     describe() {
       return immutable({
         protocol: PIXELFORGE_RUNTIME_BRIDGE_PROTOCOL,
-        version: PIXELFORGE_RUNTIME_BRIDGE_VERSION as const,
+        version: PIXELFORGE_RUNTIME_BRIDGE_VERSION,
         gameId: "oak-street-rumble",
         runtimeVersion: RUNTIME_VERSION,
         deterministic: true,
