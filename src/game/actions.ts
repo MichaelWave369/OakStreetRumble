@@ -1,5 +1,5 @@
 import { CHARACTERS, GEAR, SHOPS, type Dir, type GearId, type ShopId } from "./content.ts";
-import type { Phase } from "./engine.ts";
+import type { Phase } from "./model.ts";
 import { CAPABILITIES, type ActionEnvelope, type Capability } from "../runtime/core.ts";
 
 export type RunOptions = {
