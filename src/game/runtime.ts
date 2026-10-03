@@ -21,10 +21,10 @@ import {
 } from "./actions.ts";
 import { BufferedController, LocalBotController } from "./controllers.ts";
 import { observeWorld, type Observation, type ObservationProfile } from "./observation.ts";
-import { CHARACTERS, CLANS, GEAR, GRUNT_NAMES, LEVELS, ROOMS, SHOPS, ROOM_LINES, BOSS_LINES } from "./content.ts";
+import { CHARACTERS, CLANS, GEAR, GRUNT_NAMES, LEVELS, ROOMS, SHOPS, ROOM_LINES, BOSS_LINES, type Dir } from "./content.ts";
 import type { Meta } from "./meta-storage.ts";
 import type { Player, World } from "./model.ts";
-import { TICK_SECONDS, type OakRules } from "./rules.ts";
+import { TICK_SECONDS, type OakRules, type MoveOrigin } from "./rules.ts";
 import { LegacyOakRules } from "./legacy-rules.ts";
 
 export const RUNTIME_VERSION = "oak-runtime-kernel/1";
@@ -282,44 +282,92 @@ export class OakRuntime {
     const eventStart = this.#ledger.length;
     if (this.#frames.length === 0) this.#initial = this.snapshot();
 
+    // Replay roots contain only external/resolved decisions. Deterministic local
+    // policies and derived actions are regenerated at their exact within-tick point.
     const frameRoots: SubmittedIntent[] = [
       ...this.#pending.map((root) => structuredClone(root)),
       ...structuredClone(roots),
     ];
     this.#pending = [];
 
-    // External controllers may contribute resolved intents at the current tick.
+    // Session/UI roots land before external controller observations in the same
+    // tick, matching the verified Sol scheduler.
+    for (const root of frameRoots) this.#receive(root);
+
     for (const registration of this.#registrations.values()) {
       if (registration.stage !== "external") continue;
-      for (const intent of registration.controller.observe(this.observe(registration.id)))
-        frameRoots.push({
+      for (const intent of registration.controller.observe(this.observe(registration.id))) {
+        const root = {
           controllerId: registration.id,
           intent: structuredClone(intent),
           tick: this.#tick,
-        });
+        };
+        frameRoots.push(structuredClone(root));
+        this.#receive(root);
+      }
     }
 
-    for (const root of frameRoots) this.#receive(root);
-
-    // Local deterministic policies are regenerated from observation during replay.
-    for (const registration of this.#registrations.values()) {
-      if (registration.stage !== "local") continue;
-      const actor = this.#actor(registration.binding);
-      if (!actor) continue;
-      for (const intent of registration.controller.observe(this.observe(registration.id)))
-        this.#receive({ controllerId: registration.id, intent, tick: this.#tick });
-    }
-
-    for (const action of this.#bus.drain()) this.#apply(action);
-    for (const event of this.#rules.step(this.#world, TICK_SECONDS))
+    for (const event of this.#rules.step(this.#world, TICK_SECONDS, {
+      prepareActor: (actorId) => this.#prepareLocal(actorId),
+      requestExit: ({ direction, automatic, move }) =>
+        this.#deriveExit(direction, automatic, move),
+    }))
       this.#appendRuleEvent(event);
 
+    this.#syncAuthority();
     this.#frames.push({
       tick: this.#tick,
       roots: structuredClone(frameRoots),
     });
     this.#tick += 1;
     return this.#ledger.since(eventStart);
+  }
+
+  #prepareLocal(actorId: string): void {
+    // The engine asks for a body's controls only when that body is about to act.
+    // This preserves leader -> partner -> Wren -> rival sequential observations.
+    for (const registration of this.#registrations.values()) {
+      if (registration.stage !== "local") continue;
+      if (this.#actor(registration.binding)?.id !== actorId) continue;
+      for (const intent of registration.controller.observe(this.observe(registration.id)))
+        this.#receive({
+          controllerId: registration.id,
+          intent,
+          tick: this.#tick,
+        });
+    }
+  }
+
+  #deriveExit(direction: Dir, automatic: boolean, move?: MoveOrigin): void {
+    const actor = this.#world.player;
+
+    if (automatic) {
+      const registration = this.#registrations.get("bot:lead");
+      if (registration?.controller instanceof LocalBotController) {
+        for (const intent of registration.controller.navigate(this.observe(registration.id)))
+          this.#receive({
+            controllerId: registration.id,
+            tick: this.#tick,
+            intent: {
+              ...intent,
+              ...(move ? { causalParent: move.id } : {}),
+            },
+          });
+      }
+      return;
+    }
+
+    if (!move) return;
+    this.#receive({
+      controllerId: move.controllerId,
+      tick: this.#tick,
+      intent: {
+        actorId: actor.id,
+        type: "ENTER_ROOM",
+        params: { direction },
+        causalParent: move.id,
+      },
+    });
   }
 
   #receive(root: SubmittedIntent): void {
@@ -385,6 +433,9 @@ export class OakRuntime {
       schemaVersion: 1,
     };
     this.#bus.enqueue(action);
+    // Keep Action Bus ordering explicit while applying immediately so subsequent
+    // observations in the same tick see all prior accepted actions.
+    for (const queued of this.#bus.drain()) this.#apply(queued);
   }
 
   #apply(action: GameAction): void {
