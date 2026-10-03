@@ -1,0 +1,15 @@
+node_modules/
+.vercel/
+.nitro/
+.tanstack/
+.grok/oak-standalone.js
+.grok/preview.log
+artifacts/*.html
+artifacts/verification/
+artifacts/audit-sources.json
+artifacts/test-output/
+artifacts/patches/
+screenshots/verification-*
+artifacts/*.log
+artifacts/review/
+artifacts/baseline/*.zip
