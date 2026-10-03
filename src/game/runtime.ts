@@ -454,6 +454,7 @@ export class OakRuntime {
       type: result.accepted ? "ACTION_ACCEPTED" : "ACTION_REJECTED",
       sourceId: action.actorId,
       controllerId: action.controllerId,
+      causalParent: action.causalParent,
       correlationId: action.correlationId,
       payload: {
         actionId: action.id,
@@ -516,6 +517,14 @@ export class OakRuntime {
     const id = `a:${this.#nextAction++}`;
     const actorId = typeof intent.actorId === "string" ? intent.actorId : "unknown";
     const type = typeof intent.type === "string" ? intent.type : "unknown";
+    const causalParent =
+      typeof (intent as { causalParent?: unknown }).causalParent === "string"
+        ? (intent as { causalParent: string }).causalParent
+        : undefined;
+    const correlationId =
+      typeof (intent as { correlationId?: unknown }).correlationId === "string"
+        ? (intent as { correlationId: string }).correlationId
+        : undefined;
     this.#lastDecision = {
       id,
       type,
@@ -528,6 +537,8 @@ export class OakRuntime {
       type: "ACTION_REJECTED",
       sourceId: actorId,
       controllerId: root.controllerId,
+      causalParent,
+      correlationId,
       payload: {
         actionId: id,
         actionType: type,
