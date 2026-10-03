@@ -13,11 +13,25 @@ export type RuleResult = {
   events?: RuleEvent[];
 };
 
+export type MoveOrigin = {
+  id: string;
+  controllerId: string;
+};
+
+export type RuleTickHooks = {
+  prepareActor(actorId: string): void;
+  requestExit(request: {
+    direction: Dir;
+    automatic: boolean;
+    move?: MoveOrigin;
+  }): void;
+};
+
 export interface OakRules {
   readonly version: string;
   createWorld(options?: { seed?: number; meta?: Meta }): World;
   apply(world: World, action: GameAction, dt: number): RuleResult;
-  step(world: World, dt: number): RuleEvent[];
+  step(world: World, dt: number, hooks?: RuleTickHooks): RuleEvent[];
 }
 
 /**
@@ -187,7 +201,7 @@ export class ContractRules implements OakRules {
     }
   }
 
-  step(world: World, dt: number): RuleEvent[] {
+  step(world: World, dt: number, _hooks?: RuleTickHooks): RuleEvent[] {
     world.time += dt;
     for (const actor of [world.player, world.partner, world.mate, world.rival]) {
       if (!actor?.alive || actor.z <= 0) continue;
