@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 8080",
     "build": "vite build",
+    "build:html": "node scripts/build-html.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/runtime/*.test.ts tests/game/*.test.ts"
   },
