@@ -1,5 +1,5 @@
 import { CHARACTERS, GEAR, ROOMS, roomById, type Dir, type GearId } from "./content.ts";
-import type { ActionIntent } from "./actions.ts";
+import type { GameAction } from "./actions.ts";
 import type { Player, World } from "./model.ts";
 import type { Meta } from "./meta-storage.ts";
 import type { RuleEvent } from "../runtime/core.ts";
@@ -16,7 +16,7 @@ export type RuleResult = {
 export interface OakRules {
   readonly version: string;
   createWorld(options?: { seed?: number; meta?: Meta }): World;
-  apply(world: World, intent: ActionIntent, dt: number): RuleResult;
+  apply(world: World, action: GameAction, dt: number): RuleResult;
   step(world: World, dt: number): RuleEvent[];
 }
 
@@ -76,7 +76,7 @@ export class ContractRules implements OakRules {
     };
   }
 
-  apply(world: World, intent: ActionIntent, dt: number): RuleResult {
+  apply(world: World, intent: GameAction, dt: number): RuleResult {
     const actor = findPlayer(world, intent.actorId);
     if (!actor) return { accepted: false, reason: "UNKNOWN_ACTOR" };
 

@@ -24,7 +24,8 @@ import { observeWorld, type Observation, type ObservationProfile } from "./obser
 import { CHARACTERS, CLANS, GEAR, GRUNT_NAMES, LEVELS, ROOMS, SHOPS, ROOM_LINES, BOSS_LINES } from "./content.ts";
 import type { Meta } from "./meta-storage.ts";
 import type { Player, World } from "./model.ts";
-import { ContractRules, TICK_SECONDS, type OakRules } from "./rules.ts";
+import { TICK_SECONDS, type OakRules } from "./rules.ts";
+import { LegacyOakRules } from "./legacy-rules.ts";
 
 export const RUNTIME_VERSION = "oak-runtime-kernel/1";
 export const CONTENT_HASH = stateHash({
@@ -98,8 +99,8 @@ export type ActionDecision = {
 /**
  * Deterministic controller/authority/action/ledger kernel.
  *
- * Game rules are injected. The current ContractRules proves the seam while the
- * byte-preserved legacy Oak engine is staged behind a future LegacyRules adapter.
+ * Game rules are injected. The default LegacyOakRules adapter preserves Oak's
+ * verified gameplay while the kernel remains controller/provider/renderer independent.
  * No DOM, audio, storage, network, wall clock, fetch or model call belongs here.
  */
 export class OakRuntime {
@@ -115,6 +116,7 @@ export class OakRuntime {
   #frames: ReplayFrame[] = [];
   #initial: RuntimeSnapshot;
   #lastDecision: ActionDecision | null = null;
+  #origins = new Map<string, GameAction>();
 
   constructor(
     options: {
@@ -125,7 +127,7 @@ export class OakRuntime {
       rules?: OakRules;
     } = {},
   ) {
-    this.#rules = options.rules ?? new ContractRules();
+    this.#rules = options.rules ?? new LegacyOakRules();
     const saved = options.snapshot;
 
     if (
@@ -161,6 +163,17 @@ export class OakRuntime {
     } else {
       this.#syncAuthority(true);
     }
+
+    if (saved) {
+      for (const event of saved.ledger)
+        if (event.type === "ACTION_ACCEPTED" && event.payload.action) {
+          const action = event.payload.action as unknown as GameAction;
+          this.#origins.set(action.id, action);
+        }
+    }
+
+    for (const event of this.#world.pendingEvents.splice(0))
+      this.#appendRuleEvent(event);
 
     this.#initial = this.snapshot();
   }
@@ -401,6 +414,8 @@ export class OakRuntime {
 
     if (!result.accepted) return;
 
+    this.#origins.set(action.id, action);
+
     if (action.type === "TRANSFER_AUTHORITY") {
       for (const capability of action.params.capabilities)
         this.#authority.assign(action.actorId, capability, [action.params.to]);
@@ -416,6 +431,7 @@ export class OakRuntime {
     }
 
     if (action.type === "BEGIN_RUN") this.#syncAuthority(true);
+    if (action.type === "SUMMON_AGENT") this.#syncAuthority();
 
     for (const event of result.events ?? []) this.#appendRuleEvent(event, action);
   }
@@ -427,11 +443,17 @@ export class OakRuntime {
     causalParent?: string;
     payload: Record<string, Json>;
   }, action?: GameAction): void {
+    const parent = event.causalParent ?? action?.id;
+    const origin = parent ? (this.#origins.get(parent) ?? action) : action;
     this.#ledger.append(this.#tick, {
       ...event,
-      causalParent: event.causalParent ?? action?.id,
-      controllerId: action?.controllerId,
-      correlationId: action?.correlationId,
+      ...(parent ? { causalParent: parent } : {}),
+      ...(origin
+        ? {
+            controllerId: origin.controllerId,
+            ...(origin.correlationId ? { correlationId: origin.correlationId } : {}),
+          }
+        : {}),
     });
   }
 
@@ -482,13 +504,16 @@ export class OakRuntime {
     const registration = this.#registrations.get(controllerId);
     const actor = this.#actorById(actorId);
     if (!registration || !actor) return [];
-    return (Object.keys(ACTION_CAPABILITY) as ActionType[]).filter((type) =>
-      this.#authority.allows(
-        actorId,
-        controllerId,
-        registration.kind,
-        ACTION_CAPABILITY[type],
-      ),
+    return (Object.keys(ACTION_CAPABILITY) as ActionType[]).filter(
+      (type) =>
+        this.#authority.allows(
+          actorId,
+          controllerId,
+          registration.kind,
+          ACTION_CAPABILITY[type],
+        ) &&
+        (actor === this.#world.player ||
+          ["MOVE", "JUMP", "CROUCH", "ATTACK_LIGHT", "ATTACK_HEAVY", "BLOCK"].includes(type)),
     );
   }
 
@@ -567,7 +592,7 @@ export class OakRuntime {
 
 export function replay(
   recording: ReplayRecording,
-  rules: OakRules = new ContractRules(),
+  rules: OakRules = new LegacyOakRules(),
 ): OakRuntime {
   if (recording.schemaVersion !== 1) throw new Error("Unsupported replay schema");
   const runtime = new OakRuntime({ snapshot: recording.initial, rules });
