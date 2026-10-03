@@ -40,6 +40,13 @@ const BRIDGE_METHODS = [
   "hash",
 ] as const;
 
+function wire<T>(value: T): Readonly<T> {
+  const encoded = JSON.stringify(value);
+  if (encoded === undefined)
+    throw new TypeError("PixelForge bridge value is not JSON serializable");
+  return immutable(JSON.parse(encoded) as T);
+}
+
 function validControllerDescriptor(
   value: PixelForgeControllerDescriptor,
 ): value is PixelForgeControllerDescriptor {
@@ -70,7 +77,7 @@ export function createOakPixelForgeBridge(
 
   return Object.freeze({
     describe() {
-      return immutable({
+      return wire({
         protocol: PIXELFORGE_RUNTIME_BRIDGE_PROTOCOL,
         version: PIXELFORGE_RUNTIME_BRIDGE_VERSION,
         gameId: "oak-street-rumble",
@@ -92,7 +99,7 @@ export function createOakPixelForgeBridge(
     },
 
     observe(controllerId: string, actorId?: string) {
-      return runtime.observe(controllerId, actorId);
+      return wire(runtime.observe(controllerId, actorId));
     },
 
     submit(
@@ -101,29 +108,29 @@ export function createOakPixelForgeBridge(
       tick = runtime.tick,
     ) {
       runtime.submit(controllerId, intent, tick);
-      return immutable({ queued: true as const, tick });
+      return wire({ queued: true as const, tick });
     },
 
     advance(roots: readonly SubmittedIntent[] = []) {
-      return immutable(runtime.advance(roots));
+      return wire(runtime.advance(roots));
     },
 
     events(since = 0) {
       if (!Number.isSafeInteger(since) || since < 0)
         throw new TypeError("events(since) requires a non-negative integer");
-      return immutable(runtime.events.slice(since));
+      return wire(runtime.events.slice(since));
     },
 
     snapshot(): Readonly<RuntimeSnapshot> {
-      return immutable(runtime.snapshot());
+      return wire(runtime.snapshot());
     },
 
     recording(): Readonly<ReplayRecording> {
-      return immutable(runtime.recording());
+      return wire(runtime.recording());
     },
 
     authority() {
-      return immutable(runtime.authority);
+      return wire(runtime.authority);
     },
 
     hash() {
