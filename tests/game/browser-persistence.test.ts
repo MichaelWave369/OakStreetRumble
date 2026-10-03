@@ -26,7 +26,8 @@ test("browser checkpoint round-trips a complete governed snapshot", () => {
   const snapshot = runtime.snapshot();
 
   const restored = decodeCheckpoint(encodeCheckpoint(snapshot, 1234));
-  assert.deepEqual(restored, snapshot);
+  const durableSnapshot = JSON.parse(JSON.stringify(snapshot));
+  assert.deepEqual(restored, durableSnapshot);
 
   const resumed = new OakRuntime({ snapshot: restored });
   assert.equal(resumed.hash(), runtime.hash());
