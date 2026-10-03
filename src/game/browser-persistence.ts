@@ -23,7 +23,7 @@ function body(snapshot: RuntimeSnapshot, savedAt: number) {
 }
 
 export function encodeCheckpoint(snapshot: RuntimeSnapshot, savedAt = Date.now()): string {
-  const normalized = structuredClone(snapshot);
+  // Browser storage is JSON. Normalize before hashing so the durable form,\n  // not an in-memory object with undefined-valued properties, defines integrity.\n  const normalized = JSON.parse(JSON.stringify(snapshot)) as RuntimeSnapshot;
   const value = body(normalized, savedAt);
   return JSON.stringify({ ...value, hash: stateHash(value) });
 }
