@@ -269,8 +269,30 @@ export interface LLMController extends IntentPort {
 export interface RemoteController extends IntentPort {
   readonly kind: "remote";
 }
-export interface ScriptController extends Controller<Observation, ActionIntent> {
-  readonly kind: "script";
+export type ScriptProgram = (
+  observation: Readonly<Observation>,
+) => readonly ActionIntent[];
+
+/**
+ * Deterministic script adapter.
+ *
+ * The program receives only the same immutable Observation boundary used by
+ * every other controller. It has no World/runtime handle. Resolved script
+ * intents still pass through validation, authority, rules and the Reality Ledger.
+ */
+export class ScriptController implements Controller<Observation, ActionIntent> {
+  readonly id: string;
+  readonly kind = "script" as const;
+  #program: ScriptProgram;
+
+  constructor(id: string, program: ScriptProgram) {
+    this.id = id;
+    this.#program = program;
+  }
+
+  observe(observation: Readonly<Observation>): ActionIntent[] {
+    return structuredClone([...this.#program(observation)]);
+  }
 }
 export interface GamepadController extends Controller<Observation, ActionIntent> {
   readonly kind: "human";
