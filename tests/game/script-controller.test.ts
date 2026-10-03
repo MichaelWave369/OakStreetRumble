@@ -39,6 +39,11 @@ function makeMission(seed = 369) {
       },
     },
   });
+  runtime.advance();
+  assert.equal(runtime.state.player.id, "player:brick");
+
+  // BEGIN_RUN replaces the selected actor identity. Delegate only after the new
+  // body exists so authority is granted to the actor the script will inhabit.
   runtime.submit("human:1", {
     actorId: runtime.state.player.id,
     type: "TRANSFER_AUTHORITY",
@@ -47,6 +52,8 @@ function makeMission(seed = 369) {
       capabilities: ["movement", "combat", "navigation", "inventory"],
     },
   });
+  runtime.advance();
+  assert.deepEqual(runtime.authority[runtime.state.player.id].movement, [controller.id]);
 
   return { runtime, observations: () => observations };
 }
