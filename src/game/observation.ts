@@ -1,5 +1,5 @@
 import { GEAR, roomById, type RoomId, type GearId, type Dir } from "./content.ts";
-import type { Actor, Player, World, Phase } from "./engine.ts";
+import type { Actor, Player, World, Phase } from "./model.ts";
 import { immutable } from "../runtime/core.ts";
 import type { ActionType } from "./actions.ts";
 
