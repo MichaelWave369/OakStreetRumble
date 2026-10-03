@@ -25,6 +25,7 @@ import { CHARACTERS, CLANS, GEAR, GRUNT_NAMES, LEVELS, ROOMS, SHOPS, ROOM_LINES,
 import type { Meta } from "./meta-storage.ts";
 import type { Player, World } from "./model.ts";
 import { ContractRules, TICK_SECONDS, type OakRules } from "./rules.ts";
+import { LegacyOakRules } from "./legacy-rules.ts";
 
 export const RUNTIME_VERSION = "oak-runtime-kernel/1";
 export const CONTENT_HASH = stateHash({
@@ -98,8 +99,8 @@ export type ActionDecision = {
 /**
  * Deterministic controller/authority/action/ledger kernel.
  *
- * Game rules are injected. The current ContractRules proves the seam while the
- * byte-preserved legacy Oak engine is staged behind a future LegacyRules adapter.
+ * Game rules are injected. The default LegacyOakRules adapter preserves Oak's
+ * verified gameplay while the kernel remains controller/provider/renderer independent.
  * No DOM, audio, storage, network, wall clock, fetch or model call belongs here.
  */
 export class OakRuntime {
@@ -125,7 +126,7 @@ export class OakRuntime {
       rules?: OakRules;
     } = {},
   ) {
-    this.#rules = options.rules ?? new ContractRules();
+    this.#rules = options.rules ?? new LegacyOakRules();
     const saved = options.snapshot;
 
     if (
@@ -416,6 +417,7 @@ export class OakRuntime {
     }
 
     if (action.type === "BEGIN_RUN") this.#syncAuthority(true);
+    if (action.type === "SUMMON_AGENT") this.#syncAuthority();
 
     for (const event of result.events ?? []) this.#appendRuleEvent(event, action);
   }
@@ -567,7 +569,7 @@ export class OakRuntime {
 
 export function replay(
   recording: ReplayRecording,
-  rules: OakRules = new ContractRules(),
+  rules: OakRules = new LegacyOakRules(),
 ): OakRuntime {
   if (recording.schemaVersion !== 1) throw new Error("Unsupported replay schema");
   const runtime = new OakRuntime({ snapshot: recording.initial, rules });
