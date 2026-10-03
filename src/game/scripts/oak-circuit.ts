@@ -68,8 +68,12 @@ function nextRoom(o: Readonly<Observation>): RoomId | null {
       if (!has(o, "grip")) return null;
       return has(o, "stars") ? "mall" : "oak";
     case "mall":
+      // Recover backward if combat/knockback ever carried the actor ahead of
+      // the intended capability order.
+      if (!has(o, "stars")) return "pier";
       if (!has(o, "lens")) return "school";
       if (!has(o, "crate")) return "vent";
+      if (!has(o, "wrap")) return "vent";
       return "school";
     case "vent":
       if (!has(o, "crate")) return null;
@@ -79,11 +83,14 @@ function nextRoom(o: Readonly<Observation>): RoomId | null {
       return "vent";
     case "school":
       if (!has(o, "lens")) return null;
+      if (!has(o, "stars") || !has(o, "crate") || !has(o, "wrap")) return "mall";
       return has(o, "wire") ? "circuit" : "gym";
     case "gym":
       if (!has(o, "wire")) return null;
       return "school";
     case "circuit":
+      if (!has(o, "stars") || !has(o, "crate") || !has(o, "wrap") || !has(o, "wire"))
+        return "school";
       if (!has(o, "smoke")) return null;
       return "sanctum";
     case "sanctum":
@@ -138,9 +145,8 @@ export function oakCircuitMission(
       }];
     }
 
-    // Engage only threats already close enough to interfere with the route.
-    if (distance(self, threat) < 105 && can("MOVE"))
-      return moveToward(self.id, self.x, self.y, threat.x, threat.y, correlationId);
+    // Do not chase. Route movement owns navigation; combat is local defense.
+    // Enemies that pursue the actor will enter striking range on their own.
   }
 
   const pickup = PICKUPS[o.room];
