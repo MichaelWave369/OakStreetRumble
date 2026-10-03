@@ -23,7 +23,9 @@ function body(snapshot: RuntimeSnapshot, savedAt: number) {
 }
 
 export function encodeCheckpoint(snapshot: RuntimeSnapshot, savedAt = Date.now()): string {
-  // Browser storage is JSON. Normalize before hashing so the durable form,\n  // not an in-memory object with undefined-valued properties, defines integrity.\n  const normalized = JSON.parse(JSON.stringify(snapshot)) as RuntimeSnapshot;
+  // Browser storage is JSON. Normalize before hashing so the durable form,
+  // not an in-memory object with undefined-valued properties, defines integrity.
+  const normalized = JSON.parse(JSON.stringify(snapshot)) as RuntimeSnapshot;
   const value = body(normalized, savedAt);
   return JSON.stringify({ ...value, hash: stateHash(value) });
 }
@@ -37,8 +39,10 @@ export function decodeCheckpoint(text: string): RuntimeSnapshot {
     typeof parsed.hash !== "string"
   )
     throw new Error("Invalid checkpoint envelope");
+
   const expected = stateHash(body(parsed.snapshot, parsed.savedAt));
   if (expected !== parsed.hash) throw new Error("Checkpoint integrity mismatch");
+
   if (
     parsed.snapshot.schemaVersion !== 1 ||
     parsed.snapshot.game !== "oak-street-rumble" ||
@@ -46,14 +50,17 @@ export function decodeCheckpoint(text: string): RuntimeSnapshot {
     parsed.snapshot.contentHash !== CONTENT_HASH
   )
     throw new Error("Checkpoint runtime/content version mismatch");
+
   return parsed.snapshot;
 }
 
 export class BrowserCheckpointStore {
   #storage: Storage | null;
+
   constructor(storage: Storage | null = browserStorage()) {
     this.#storage = storage;
   }
+
   load(): { snapshot: RuntimeSnapshot | null; error?: string } {
     try {
       const text = this.#storage?.getItem(KEY);
@@ -65,15 +72,20 @@ export class BrowserCheckpointStore {
       };
     }
   }
+
   save(snapshot: RuntimeSnapshot): { ok: boolean; error?: string } {
     try {
       if (!this.#storage) throw new Error("Browser storage unavailable");
       this.#storage.setItem(KEY, encodeCheckpoint(snapshot));
       return { ok: true };
     } catch (error) {
-      return { ok: false, error: error instanceof Error ? error.message : "Checkpoint save failed" };
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "Checkpoint save failed",
+      };
     }
   }
+
   clear(): void {
     this.#storage?.removeItem(KEY);
   }
