@@ -26,6 +26,6 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "parallax-pixelforge": "github:MichaelWave369/parallax-pixelforge#c76b838c48f598167191236e55aab3d9775d06b1"
+    "parallax-pixelforge": "https://github.com/MichaelWave369/parallax-pixelforge/archive/c76b838c48f598167191236e55aab3d9775d06b1.tar.gz"
   }
 }
