@@ -44,7 +44,25 @@ npm test
 - [Verified Sol handoff](docs/VERIFICATION.md)
 - [Delivered phases and bounded next increments](docs/PHASES.md)
 - [PixelForge convergence plan](docs/PIXELFORGE_CONVERGENCE.md)
+- [PixelForge Ollama -> Oak qualification](docs/PIXELFORGE_OLLAMA_QUALIFICATION.md)
 
 Oak remains the playable acceptance harness. Reusable primitives move into
 Parallax PixelForge only after a second concrete game proves that they are truly
 shared rather than Oak-specific.
+
+
+## Model qualification
+
+Oak can now be qualified through the canonical PixelForge model stack.
+
+CI uses a fake Ollama transport:
+
+```sh
+npm run test:pixelforge-model
+```
+
+A real installed local model can be exercised with:
+
+```sh
+OLLAMA_MODEL=<installed-model> npm run qualify:ollama
+```
