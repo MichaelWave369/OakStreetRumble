@@ -25,8 +25,6 @@ import type { OakRules, RuleResult, RuleTickHooks, MoveOrigin } from "./rules.ts
 
 const DT = 1 / 60;
 
-type MoveOrigin = { id: string; controllerId: string };
-
 export class LegacyOakRules implements OakRules {
   readonly version = "oak-legacy-rules/2";
   #inputs = new Map<string, Input>();
