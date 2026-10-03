@@ -1,4 +1,4 @@
-import type { World } from "./engine.ts";
+import type { World } from "./model.ts";
 
 export type Meta = { best: number; clears: number; last: string };
 export const META_KEY = "oak-rumble-v1";
