@@ -21,14 +21,14 @@ import { SHOPS, roomById } from "./content.ts";
 import type { Meta } from "./meta-storage.ts";
 import type { World } from "./model.ts";
 import type { RuleEvent } from "../runtime/core.ts";
-import type { OakRules, RuleResult } from "./rules.ts";
+import type { OakRules, RuleResult, RuleTickHooks, MoveOrigin } from "./rules.ts";
 
 const DT = 1 / 60;
 
 type MoveOrigin = { id: string; controllerId: string };
 
 export class LegacyOakRules implements OakRules {
-  readonly version = "oak-legacy-rules/1";
+  readonly version = "oak-legacy-rules/2";
   #inputs = new Map<string, Input>();
   #moves = new Map<string, MoveOrigin>();
 
@@ -138,20 +138,30 @@ export class LegacyOakRules implements OakRules {
     return { accepted: true, reason: "ALLOW", events: drain(w) };
   }
 
-  step(world: World, dt = DT): RuleEvent[] {
+  step(world: World, dt = DT, hooks?: RuleTickHooks): RuleEvent[] {
     const w = world as unknown as EngineWorld;
 
     if (w.phase === "play") {
       step(w, dt, emptyInput(), {
-        forActor: (actor) => this.#inputs.get(actor.id) ?? emptyInput(),
+        forActor: (actor) => {
+          // Preserve the original leader -> partner -> Wren -> rival observation
+          // order. A local policy sees the world only when its body is about to
+          // act, after earlier bodies in the same tick have already moved.
+          hooks?.prepareActor(actor.id);
+          return this.#inputs.get(actor.id) ?? emptyInput();
+        },
         requestExit: (direction, automatic) => {
           const move = this.#moves.get(w.player.id);
+          if (hooks) {
+            hooks.requestExit({ direction, automatic, ...(move ? { move } : {}) });
+            return;
+          }
+          // Direct adapter use keeps the old behavior when no governed runtime
+          // scheduler is present.
           if (move) {
             w.actionCauses[w.player.id] ??= {};
             w.actionCauses[w.player.id].navigation = move.id;
           }
-          // This derived transition is downstream of an already validated MOVE.
-          // The next runtime rung will promote it to an explicit derived action.
           leaveThroughExit(w, direction, automatic);
         },
       });
